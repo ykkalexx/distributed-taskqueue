@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -23,15 +22,13 @@ func main() {
 	}
 
 	// add some tasks
+	functionNames := []string{"printHello", "simulateWork"}
 	for i := 0; i < 10; i++ {
 		taskID := i
+		functionName := functionNames[i%len(functionNames)]
 		err := queue.AddTask(task.Task{
-			ID: taskID,
-			Function: func() error {
-				fmt.Printf("Executing task %d\n", taskID)
-				time.Sleep(time.Second) // Simulate work
-				return nil
-			},
+			ID:           taskID,
+			FunctionName: functionName,
 		})
 		if err != nil {
 			log.Printf("Failed to add task: %v", err)

@@ -2,5 +2,5 @@ package task
 
 type Task struct {
 	ID       int          `json:"id"`
-	Function func() error `json:"-"`
+	FunctionName string `json:"function_name"`
 }

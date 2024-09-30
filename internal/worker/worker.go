@@ -8,6 +8,18 @@ import (
 	"github.com/ykkalexx/distributed-taskqueue/internal/task"
 )
 
+var FunctionMap = map[string]func() error {
+	"printHello": func() error {
+		fmt.Println("Hello")
+		return nil
+	},
+	"simulateWork": func() error {
+		time.Sleep(time.Second)
+		return nil
+	},
+	// will add more functions 
+}
+
 func Start(id int, queue interface{}) {
 	for {
 		var t task.Task
@@ -34,10 +46,15 @@ func Start(id int, queue interface{}) {
 			continue
 		}
 
-		fmt.Printf("Worker %d: processing task %d\n", id, t.ID)
-		err = t.Function()
-		if err != nil {
-			fmt.Printf("Error executing task %d: %v\n", t.ID, err)
+		fmt.Printf("Worker %d executing task %d (%s)\n", id, t.ID, t.FunctionName)
+		
+		if fn, exists := FunctionMap[t.FunctionName]; exists {
+			err = fn()
+			if err != nil {
+				fmt.Printf("Error executing task %d: %v\n", t.ID, err)
+			}
+		} else {
+			fmt.Printf("Unknown function for task %d: %s\n", t.ID, t.FunctionName)
 		}
 	}
 }

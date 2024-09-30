@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -31,12 +32,13 @@ func NewRedisQueue(addr, password string, db int, key string) (*RedisQueue, erro
 }
 
 func (rq *RedisQueue) AddTask(task Task) error {
+    ctx := context.Background()
     taskJSON, err := json.Marshal(task)
     if err != nil {
         return fmt.Errorf("failed to marshal task: %v", err)
     }
 
-    err = rq.client.RPush(rq.key, taskJSON).Err()
+    err = rq.client.WithContext(ctx).RPush(rq.key, taskJSON).Err()
     if err != nil {
         return fmt.Errorf("failed to add task to Redis: %v", err)
     }
@@ -45,7 +47,8 @@ func (rq *RedisQueue) AddTask(task Task) error {
 }
 
 func (rq *RedisQueue) GetTask() (Task, bool, error) {
-    taskJSON, err := rq.client.LPop(rq.key).Result()
+    ctx := context.Background()
+    taskJSON, err := rq.client.WithContext(ctx).LPop(rq.key).Bytes()
     if err == redis.Nil {
         return Task{}, false, nil
     } else if err != nil {
@@ -53,7 +56,7 @@ func (rq *RedisQueue) GetTask() (Task, bool, error) {
     }
 
     var task Task
-    err = json.Unmarshal([]byte(taskJSON), &task)
+    err = json.Unmarshal(taskJSON, &task)
     if err != nil {
         return Task{}, false, fmt.Errorf("failed to unmarshal task: %v", err)
     }
@@ -62,5 +65,5 @@ func (rq *RedisQueue) GetTask() (Task, bool, error) {
 }
 
 func (rq *RedisQueue) Close() error {
-	return rq.client.Close()
+    return rq.client.Close()
 }
