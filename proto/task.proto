@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "distributed-taskqueue/proto";
+
+service TaskService {
+    rpc SubmitTask(TaskRequest) returns (TaskResponse) {}
+}
+
+message TaskRequest {
+    int32 id = 1;
+    string function_name = 2;
+}
+
+message TaskResponse {
+    bool success = 1;
+    string message = 2;
+}

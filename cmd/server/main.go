@@ -6,6 +6,7 @@ import (
 
 	"github.com/ykkalexx/distributed-taskqueue/internal/task"
 	"github.com/ykkalexx/distributed-taskqueue/internal/worker"
+	"github.com/ykkalexx/distributed-taskqueue/pkg/grpc"
 )
 
 func main() {
@@ -21,17 +22,22 @@ func main() {
 		go worker.Start(i, queue)
 	}
 
-	// add some tasks
+	// Start gRPC server
+	go func() {
+		if err := grpc.StartServer(queue, 50051); err != nil {
+			log.Fatalf("Failed to start gRPC server: %v", err)
+		}
+	}()
+
+	// give the second a moment to breath and start
+	time.Sleep(time.Second)
+
+	// submit task using grpc client
 	functionNames := []string{"printHello", "simulateWork"}
 	for i := 0; i < 10; i++ {
-		taskID := i
-		functionName := functionNames[i%len(functionNames)]
-		err := queue.AddTask(task.Task{
-			ID:           taskID,
-			FunctionName: functionName,
-		})
+		err := grpc.SubmitTask("localhost:50051", int32(i), functionNames[i%len(functionNames)])
 		if err != nil {
-			log.Printf("Failed to add task: %v", err)
+			log.Printf("Failed to submit task: %v", err)
 		}
 	}
 
