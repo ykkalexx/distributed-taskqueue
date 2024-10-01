@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 type RedisQueue struct {
@@ -14,6 +14,7 @@ type RedisQueue struct {
 }
 
 func NewRedisQueue(addr, password string, db int, key string) (*RedisQueue, error) {
+    ctx := context.Background()
     client := redis.NewClient(&redis.Options{
         Addr:     addr,
         Password: password,
@@ -21,7 +22,7 @@ func NewRedisQueue(addr, password string, db int, key string) (*RedisQueue, erro
     })
 
     // Ping the Redis server to check if the connection is alive
-    if err := client.Ping().Err(); err != nil {
+    if err := client.Ping(ctx).Err(); err != nil {
         return nil, fmt.Errorf("failed to connect to Redis: %v", err)
     }
 
@@ -32,36 +33,47 @@ func NewRedisQueue(addr, password string, db int, key string) (*RedisQueue, erro
 }
 
 func (rq *RedisQueue) AddTask(task Task) error {
-    ctx := context.Background()
-    taskJSON, err := json.Marshal(task)
-    if err != nil {
-        return fmt.Errorf("failed to marshal task: %v", err)
-    }
+	ctx := context.Background()
+	taskJSON, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to marshal task: %v", err)
+	}
 
-    err = rq.client.WithContext(ctx).RPush(rq.key, taskJSON).Err()
-    if err != nil {
-        return fmt.Errorf("failed to add task to Redis: %v", err)
-    }
+	// Use priority as score for sorted set
+	err = rq.client.ZAdd(ctx, rq.key, &redis.Z{
+		Score:  float64(task.Priority),
+		Member: taskJSON,
+	}).Err()
+	if err != nil {
+		return fmt.Errorf("failed to add task to Redis: %v", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (rq *RedisQueue) GetTask() (Task, bool, error) {
-    ctx := context.Background()
-    taskJSON, err := rq.client.WithContext(ctx).LPop(rq.key).Bytes()
-    if err == redis.Nil {
-        return Task{}, false, nil
-    } else if err != nil {
-        return Task{}, false, fmt.Errorf("failed to get task from Redis: %v", err)
-    }
+	ctx := context.Background()
+	
+	// Use ZPopMax to get and remove the highest scored member (highest priority task)
+	result, err := rq.client.ZPopMax(ctx, rq.key).Result()
+	if err == redis.Nil || len(result) == 0 {
+		return Task{}, false, nil
+	} else if err != nil {
+		return Task{}, false, fmt.Errorf("failed to get task from Redis: %v", err)
+	}
 
-    var task Task
-    err = json.Unmarshal(taskJSON, &task)
-    if err != nil {
-        return Task{}, false, fmt.Errorf("failed to unmarshal task: %v", err)
-    }
+	taskJSON, ok := result[0].Member.(string)
+	if !ok {
+		return Task{}, false, fmt.Errorf("failed to convert Redis member to string")
+	}
 
-    return task, true, nil
+	var task Task
+	err = json.Unmarshal([]byte(taskJSON), &task)
+	if err != nil {
+		return Task{}, false, fmt.Errorf("failed to unmarshal task: %v", err)
+	}
+
+	return task, true, nil
 }
 
 func (rq *RedisQueue) Close() error {

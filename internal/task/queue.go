@@ -1,6 +1,9 @@
 package task
 
-import "sync"
+import (
+	"sort"
+	"sync"
+)
 
 type Queue interface {
 	AddTask(task Task) error
@@ -23,6 +26,9 @@ func (q *InMemoryQueue) AddTask(task Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.tasks = append(q.tasks, task)
+	sort.Slice(q.tasks, func(i, j int) bool {
+		return q.tasks[i].Priority > q.tasks[j].Priority
+	})
 	return nil
 }
 

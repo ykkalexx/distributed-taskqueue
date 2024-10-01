@@ -9,19 +9,34 @@ import (
 	"google.golang.org/grpc"
 )
 
-func SubmitTask(addr string, id int32, functionName string) error {
+type Client struct {
+	conn *grpc.ClientConn
+	client proto.TaskServiceClient
+}
+
+func NewClient(addr string) (*Client, error) {
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		return fmt.Errorf("did not connect: %v", err)
+		return nil, fmt.Errorf("did not connect: %v", err)
 	}
-	defer conn.Close()
 
 	c := proto.NewTaskServiceClient(conn)
 
+	return &Client{
+		conn: conn,
+		client: c,
+	}, nil
+}
+
+func (c *Client) Close() error {
+	return c.conn.Close()
+}
+
+func (c *Client) SubmitTask(id int32, functionName string, priority int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.SubmitTask(ctx, &proto.TaskRequest{Id: id, FunctionName: functionName})
+	r, err := c.client.SubmitTask(ctx, &proto.TaskRequest{Id: id, FunctionName: functionName, Priority: priority})
 	if err != nil {
 		return fmt.Errorf("could not submit task: %v", err)
 	}
