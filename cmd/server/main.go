@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/ykkalexx/distributed-taskqueue/internal/loadbalancer"
 	"github.com/ykkalexx/distributed-taskqueue/internal/task"
 	"github.com/ykkalexx/distributed-taskqueue/internal/worker"
 	"github.com/ykkalexx/distributed-taskqueue/pkg/grpc"
@@ -17,22 +18,27 @@ func main() {
 	}
 	defer queue.Close()
 
-	// start some workers
+	// Create load balancer
+	lb := loadbalancer.New()
+
+	// Create and start workers
 	for i := 0; i < 3; i++ {
-		go worker.Start(i, queue)
+		w := worker.NewWorker(i, queue)
+		lb.AddWorker(w)
+		go w.Start()
 	}
 
-	// Start gRPC server
+	// Start gRPC server with load balancer
 	go func() {
-		if err := grpc.StartServer(queue, 50051); err != nil {
+		if err := grpc.StartServer(queue, lb, 50051); err != nil {
 			log.Fatalf("Failed to start gRPC server: %v", err)
 		}
 	}()
 
-	// give the second a moment to breath and start
+	// give the server time to wake up and get coffee zzzZzzz
 	time.Sleep(time.Second)
 
-	// submit task using grpc client
+	// Submit some tasks using the gRPC client
 	functionNames := []string{"printHello", "simulateWork"}
 	for i := 0; i < 10; i++ {
 		err := grpc.SubmitTask("localhost:50051", int32(i), functionNames[i%len(functionNames)])

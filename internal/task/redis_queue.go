@@ -67,3 +67,5 @@ func (rq *RedisQueue) GetTask() (Task, bool, error) {
 func (rq *RedisQueue) Close() error {
     return rq.client.Close()
 }
+
+var _ Queue = (*RedisQueue)(nil)

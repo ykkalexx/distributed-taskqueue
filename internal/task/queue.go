@@ -2,30 +2,45 @@ package task
 
 import "sync"
 
-type Queue struct {
+type Queue interface {
+	AddTask(task Task) error
+	GetTask() (Task, bool, error)
+	Close() error
+}
+
+type InMemoryQueue struct {
 	tasks []Task
 	mu    sync.Mutex
 }
 
-func NewQueue() *Queue {
-	return &Queue{
+func NewInMemoryQueue() *InMemoryQueue {
+	return &InMemoryQueue{
 		tasks: make([]Task, 0),
 	}
 }
 
-func (q *Queue) AddTask(task Task) {
+func (q *InMemoryQueue) AddTask(task Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.tasks = append(q.tasks, task)
+	return nil
 }
 
-func (q *Queue) GetTask() (Task, bool) {
+func (q *InMemoryQueue) GetTask() (Task, bool, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.tasks) == 0 {
-		return Task{}, false
+		return Task{}, false, nil
 	}
 	task := q.tasks[0]
 	q.tasks = q.tasks[1:]
-	return task, true
+	return task, true, nil
 }
+
+func (q *InMemoryQueue) Close() error {
+	// No-op for in-memory queue
+	return nil
+}
+
+// Ensure InMemoryQueue implements Queue interface
+var _ Queue = (*InMemoryQueue)(nil)
