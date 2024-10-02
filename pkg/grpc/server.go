@@ -14,7 +14,7 @@ import (
 
 type server struct {
 	proto.UnimplementedTaskServiceServer
-	queue *task.RedisQueue
+	queue task.Queue
 	lb    *loadbalancer.LoadBalancer
 }
 
@@ -31,7 +31,6 @@ func (s *server) SubmitTask(ctx context.Context, req *proto.TaskRequest) (*proto
 		return &proto.TaskResponse{Success: false, Message: fmt.Sprintf("Failed to add task: %v", err)}, nil
 	}
 
-	// Use load balancer to get next worker
 	worker := s.lb.NextWorker()
 	if worker != nil {
 		log.Printf("Task %d (Priority: %d, Max Retries: %d) assigned to Worker %d", t.ID, t.Priority, t.MaxRetries, worker.ID())
@@ -40,7 +39,7 @@ func (s *server) SubmitTask(ctx context.Context, req *proto.TaskRequest) (*proto
 	return &proto.TaskResponse{Success: true, Message: "Task submitted successfully"}, nil
 }
 
-func StartServer(queue *task.RedisQueue, lb *loadbalancer.LoadBalancer, port int) error {
+func StartServer(queue task.Queue, lb *loadbalancer.LoadBalancer, port int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)

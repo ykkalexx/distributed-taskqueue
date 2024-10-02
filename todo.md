@@ -13,7 +13,7 @@ Develop basic load balancing for task distribution ✓
 3. Task Management
 
 Implement basic task priorities (e.g., high, medium, low) ✓
-Create a simple retry mechanism for failed tasks
+Create a simple retry mechanism for failed tasks ✓
 
 4. Persistence
 

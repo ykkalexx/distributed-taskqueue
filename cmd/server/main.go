@@ -10,11 +10,47 @@ import (
 	"github.com/ykkalexx/distributed-taskqueue/pkg/grpc"
 )
 
+type CompositeQueue struct {
+	redisQueue  *task.RedisQueue
+	sqliteQueue *task.SQLiteQueue
+}
+
+func (cq *CompositeQueue) AddTask(t task.Task) error {
+	if err := cq.redisQueue.AddTask(t); err != nil {
+		return err
+	}
+	return cq.sqliteQueue.AddTask(t)
+}
+
+func (cq *CompositeQueue) GetTask() (task.Task, bool, error) {
+	t, ok, err := cq.redisQueue.GetTask()
+	if err != nil || ok {
+		return t, ok, err
+	}
+	return cq.sqliteQueue.GetTask()
+}
+
+func (cq *CompositeQueue) Close() error {
+	if err := cq.redisQueue.Close(); err != nil {
+		return err
+	}
+	return cq.sqliteQueue.Close()
+}
+
 func main() {
-	// Create a Redis-based queue
-	queue, err := task.NewRedisQueue("localhost:6379", "", 0, "tasks")
+	redisQueue, err := task.NewRedisQueue("localhost:6379", "", 0, "tasks")
 	if err != nil {
 		log.Fatalf("Failed to create Redis queue: %v", err)
+	}
+
+	sqliteQueue, err := task.NewSQLiteQueue("tasks.db")
+	if err != nil {
+		log.Fatalf("Failed to create SQLite queue: %v", err)
+	}
+
+	queue := &CompositeQueue{
+		redisQueue:  redisQueue,
+		sqliteQueue: sqliteQueue,
 	}
 	defer queue.Close()
 
@@ -46,7 +82,7 @@ func main() {
 
 	priorities := []int32{int32(task.LowPriority), int32(task.MediumPriority), int32(task.HighPriority)}
 	functions := []string{"printHello", "simulateWork"}
-	
+
 	for i := 0; i < 10; i++ {
 		priority := priorities[i%len(priorities)]
 		functionName := functions[i%len(functions)]
