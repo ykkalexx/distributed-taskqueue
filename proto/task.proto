@@ -12,6 +12,7 @@ message TaskRequest {
     int32 id = 1;
     string function_name = 2;
     int32 priority = 3;
+    int32 max_retries = 4;
 }
 
 message TaskResponse {

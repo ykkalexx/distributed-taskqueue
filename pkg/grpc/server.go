@@ -15,13 +15,15 @@ import (
 type server struct {
 	proto.UnimplementedTaskServiceServer
 	queue *task.RedisQueue
-	lb *loadbalancer.LoadBalancer
+	lb    *loadbalancer.LoadBalancer
 }
 
 func (s *server) SubmitTask(ctx context.Context, req *proto.TaskRequest) (*proto.TaskResponse, error) {
 	t := task.Task{
 		ID:           int(req.Id),
 		FunctionName: req.FunctionName,
+		Priority:     task.Priority(req.Priority),
+		MaxRetries:   int(req.MaxRetries),
 	}
 
 	err := s.queue.AddTask(t)
@@ -29,17 +31,16 @@ func (s *server) SubmitTask(ctx context.Context, req *proto.TaskRequest) (*proto
 		return &proto.TaskResponse{Success: false, Message: fmt.Sprintf("Failed to add task: %v", err)}, nil
 	}
 
-		// Use load balancer to get next worker
+	// Use load balancer to get next worker
 	worker := s.lb.NextWorker()
 	if worker != nil {
-		log.Printf("Task %d assigned to Worker %d", t.ID, worker.ID())
+		log.Printf("Task %d (Priority: %d, Max Retries: %d) assigned to Worker %d", t.ID, t.Priority, t.MaxRetries, worker.ID())
 	}
-	
 
 	return &proto.TaskResponse{Success: true, Message: "Task submitted successfully"}, nil
 }
 
-func StartServer(queue *task.RedisQueue, lb *loadbalancer.LoadBalancer , port int) error {
+func StartServer(queue *task.RedisQueue, lb *loadbalancer.LoadBalancer, port int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)

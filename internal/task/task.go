@@ -9,7 +9,9 @@ const (
 )
 
 type Task struct {
-	ID           int          `json:"id"`
-	FunctionName string       `json:"function_name"`
-	Priority 	 Priority     `json:"priority"`
+	ID           int      `json:"id"`
+	FunctionName string   `json:"function_name"`
+	Priority     Priority `json:"priority"`
+	Retries      int      `json:"retries"`
+	MaxRetries   int      `json:"max_retries"`
 }

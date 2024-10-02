@@ -38,11 +38,23 @@ func (w *Worker) Start() {
 		}
 
 		fmt.Printf("Worker %d executing task %d (%s)\n", w.id, t.ID, t.FunctionName)
-		
+
 		if fn, exists := FunctionMap[t.FunctionName]; exists {
 			err = fn()
 			if err != nil {
 				fmt.Printf("Error executing task %d: %v\n", t.ID, err)
+				if t.Retries < t.MaxRetries {
+					t.Retries++
+					fmt.Printf("Retrying task %d (Attempt %d/%d)\n", t.ID, t.Retries+1, t.MaxRetries+1)
+					err = w.queue.AddTask(t)
+					if err != nil {
+						fmt.Printf("Failed to requeue task %d: %v\n", t.ID, err)
+					}
+				} else {
+					fmt.Printf("Task %d failed after %d attempts\n", t.ID, t.MaxRetries+1)
+				}
+			} else {
+				fmt.Printf("Task %d completed successfully\n", t.ID)
 			}
 		} else {
 			fmt.Printf("Unknown function for task %d: %s\n", t.ID, t.FunctionName)
@@ -50,7 +62,7 @@ func (w *Worker) Start() {
 	}
 }
 
-var FunctionMap = map[string]func() error {
+var FunctionMap = map[string]func() error{
 	"printHello": func() error {
 		fmt.Println("Hello")
 		return nil
@@ -59,6 +71,5 @@ var FunctionMap = map[string]func() error {
 		time.Sleep(time.Second)
 		return nil
 	},
-	// will add more functions 
+	// will add more functions
 }
-
