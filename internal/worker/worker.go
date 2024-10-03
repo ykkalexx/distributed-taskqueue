@@ -2,9 +2,9 @@ package worker
 
 import (
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/ykkalexx/distributed-taskqueue/internal/logger"
 	"github.com/ykkalexx/distributed-taskqueue/internal/task"
 )
 
@@ -25,10 +25,11 @@ func (w *Worker) ID() int {
 }
 
 func (w *Worker) Start() {
+	logger.Info("Worker %d started", w.id)
 	for {
 		t, ok, err := w.queue.GetTask()
 		if err != nil {
-			log.Printf("Worker %d error getting task: %v", w.id, err)
+			logger.Error("Worker %d error getting task: %v", w.id, err)
 			time.Sleep(time.Second)
 			continue
 		}
@@ -37,27 +38,27 @@ func (w *Worker) Start() {
 			continue
 		}
 
-		fmt.Printf("Worker %d executing task %d (%s)\n", w.id, t.ID, t.FunctionName)
+		logger.Info("Worker %d executing task %d (%s) - Attempt %d", w.id, t.ID, t.FunctionName, t.Retries+1)
 
 		if fn, exists := FunctionMap[t.FunctionName]; exists {
 			err = fn()
 			if err != nil {
-				fmt.Printf("Error executing task %d: %v\n", t.ID, err)
+				logger.Warn("Error executing task %d: %v", t.ID, err)
 				if t.Retries < t.MaxRetries {
 					t.Retries++
-					fmt.Printf("Retrying task %d (Attempt %d/%d)\n", t.ID, t.Retries+1, t.MaxRetries+1)
+					logger.Info("Retrying task %d (Attempt %d/%d)", t.ID, t.Retries+1, t.MaxRetries+1)
 					err = w.queue.AddTask(t)
 					if err != nil {
-						fmt.Printf("Failed to requeue task %d: %v\n", t.ID, err)
+						logger.Error("Failed to requeue task %d: %v", t.ID, err)
 					}
 				} else {
-					fmt.Printf("Task %d failed after %d attempts\n", t.ID, t.MaxRetries+1)
+					logger.Warn("Task %d failed after %d attempts", t.ID, t.MaxRetries+1)
 				}
 			} else {
-				fmt.Printf("Task %d completed successfully\n", t.ID)
+				logger.Info("Task %d completed successfully", t.ID)
 			}
 		} else {
-			fmt.Printf("Unknown function for task %d: %s\n", t.ID, t.FunctionName)
+			logger.Warn("Unknown function for task %d: %s", t.ID, t.FunctionName)
 		}
 	}
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type Client struct {
-	conn *grpc.ClientConn
+	conn   *grpc.ClientConn
 	client proto.TaskServiceClient
 }
 
@@ -23,7 +23,7 @@ func NewClient(addr string) (*Client, error) {
 	c := proto.NewTaskServiceClient(conn)
 
 	return &Client{
-		conn: conn,
+		conn:   conn,
 		client: c,
 	}, nil
 }
@@ -32,11 +32,16 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Client) SubmitTask(id int32, functionName string, priority int32) error {
+func (c *Client) SubmitTask(id int32, functionName string, priority int32, maxRetries int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.client.SubmitTask(ctx, &proto.TaskRequest{Id: id, FunctionName: functionName, Priority: priority})
+	r, err := c.client.SubmitTask(ctx, &proto.TaskRequest{
+		Id:           id,
+		FunctionName: functionName,
+		Priority:     priority,
+		MaxRetries:   maxRetries,
+	})
 	if err != nil {
 		return fmt.Errorf("could not submit task: %v", err)
 	}

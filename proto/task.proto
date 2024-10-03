@@ -6,6 +6,7 @@ option go_package = "distributed-taskqueue/proto";
 
 service TaskService {
     rpc SubmitTask(TaskRequest) returns (TaskResponse) {}
+    rpc GetSystemStatus(SystemStatusRequest) returns (SystemStatusResponse) {}
 }
 
 message TaskRequest {
@@ -18,4 +19,14 @@ message TaskRequest {
 message TaskResponse {
     bool success = 1;
     string message = 2;
+}
+
+message SystemStatusRequest {}
+
+message SystemStatusResponse {
+    int32 total_tasks = 1;
+    int32 pending_tasks = 2;
+    int32 completed_tasks = 3;
+    int32 failed_tasks = 4;
+    int32 worker_count = 5;
 }

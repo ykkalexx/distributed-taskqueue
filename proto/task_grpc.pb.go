@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
 	SubmitTask(ctx context.Context, in *TaskRequest, opts ...grpc.CallOption) (*TaskResponse, error)
+	GetSystemStatus(ctx context.Context, in *SystemStatusRequest, opts ...grpc.CallOption) (*SystemStatusResponse, error)
 }
 
 type taskServiceClient struct {
@@ -38,11 +39,21 @@ func (c *taskServiceClient) SubmitTask(ctx context.Context, in *TaskRequest, opt
 	return out, nil
 }
 
+func (c *taskServiceClient) GetSystemStatus(ctx context.Context, in *SystemStatusRequest, opts ...grpc.CallOption) (*SystemStatusResponse, error) {
+	out := new(SystemStatusResponse)
+	err := c.cc.Invoke(ctx, "/proto.TaskService/GetSystemStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServiceServer is the server API for TaskService service.
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility
 type TaskServiceServer interface {
 	SubmitTask(context.Context, *TaskRequest) (*TaskResponse, error)
+	GetSystemStatus(context.Context, *SystemStatusRequest) (*SystemStatusResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
 
@@ -52,6 +63,9 @@ type UnimplementedTaskServiceServer struct {
 
 func (UnimplementedTaskServiceServer) SubmitTask(context.Context, *TaskRequest) (*TaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitTask not implemented")
+}
+func (UnimplementedTaskServiceServer) GetSystemStatus(context.Context, *SystemStatusRequest) (*SystemStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSystemStatus not implemented")
 }
 func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
 
@@ -84,6 +98,24 @@ func _TaskService_SubmitTask_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskService_GetSystemStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SystemStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServiceServer).GetSystemStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.TaskService/GetSystemStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServiceServer).GetSystemStatus(ctx, req.(*SystemStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -94,6 +126,10 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SubmitTask",
 			Handler:    _TaskService_SubmitTask_Handler,
+		},
+		{
+			MethodName: "GetSystemStatus",
+			Handler:    _TaskService_GetSystemStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

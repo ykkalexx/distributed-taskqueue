@@ -1,10 +1,10 @@
 package main
 
 import (
-	"log"
 	"time"
 
 	"github.com/ykkalexx/distributed-taskqueue/internal/loadbalancer"
+	"github.com/ykkalexx/distributed-taskqueue/internal/logger"
 	"github.com/ykkalexx/distributed-taskqueue/internal/task"
 	"github.com/ykkalexx/distributed-taskqueue/internal/worker"
 	"github.com/ykkalexx/distributed-taskqueue/pkg/grpc"
@@ -38,14 +38,17 @@ func (cq *CompositeQueue) Close() error {
 }
 
 func main() {
+	logger.SetLogLevel(logger.DEBUG)
+	logger.Info("Starting distributed task queue system")
+
 	redisQueue, err := task.NewRedisQueue("localhost:6379", "", 0, "tasks")
 	if err != nil {
-		log.Fatalf("Failed to create Redis queue: %v", err)
+		logger.Error("Failed to create Redis queue: %v", err)
 	}
 
 	sqliteQueue, err := task.NewSQLiteQueue("tasks.db")
 	if err != nil {
-		log.Fatalf("Failed to create SQLite queue: %v", err)
+		logger.Error("Failed to create SQLite queue: %v", err)
 	}
 
 	queue := &CompositeQueue{
@@ -62,12 +65,14 @@ func main() {
 		w := worker.NewWorker(i, queue)
 		lb.AddWorker(w)
 		go w.Start()
+		logger.Info("Started worker %d", i)
 	}
 
 	// Start gRPC server with load balancer
 	go func() {
+		logger.Info("Starting gRPC server on port 50051")
 		if err := grpc.StartServer(queue, lb, 50051); err != nil {
-			log.Fatalf("Failed to start gRPC server: %v", err)
+			logger.Error("Failed to start gRPC server: %v", err)
 		}
 	}()
 
@@ -76,7 +81,8 @@ func main() {
 
 	client, err := grpc.NewClient("localhost:50051")
 	if err != nil {
-		log.Fatalf("Failed to create gRPC client: %v", err)
+		logger.Error("Failed to create gRPC client: %v", err)
+		return
 	}
 	defer client.Close()
 
@@ -86,12 +92,16 @@ func main() {
 	for i := 0; i < 10; i++ {
 		priority := priorities[i%len(priorities)]
 		functionName := functions[i%len(functions)]
-		err := client.SubmitTask(int32(i), functionName, priority)
+		maxRetries := int32(2)
+		err := client.SubmitTask(int32(i), functionName, priority, maxRetries)
 		if err != nil {
-			log.Printf("Failed to submit task: %v", err)
+			logger.Warn("Failed to submit task: %v", err)
+		} else {
+			logger.Debug("Submitted task: id=%d, function=%s, priority=%d, maxRetries=%d", i, functionName, priority, maxRetries)
 		}
 	}
 
-	// Wait for tasks to complete
-	time.Sleep(time.Second * 15)
+	logger.Info("All tasks submitted. Waiting for completion...")
+	time.Sleep(time.Second * 30)
+	logger.Info("Shutting down")
 }
