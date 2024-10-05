@@ -23,10 +23,10 @@ Add basic persistent storage for tasks (using a simple database like SQLite) ✓
 
 Implement basic logging system ✓
 
-6. API
+6. API (maybe in the future we will see)
 
 Develop a basic RESTful API for task submission and retrieval
 
-7.  Simple Web UI
+7.  Simple Web UI (maybe in the future we will see)
 
 Create a basic web interface for submitting tasks and viewing status
